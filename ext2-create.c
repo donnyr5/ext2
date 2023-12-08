@@ -199,33 +199,32 @@ void write_superblock(int fd) {
 	// TODO It's all yours
 	// TODO finish the superblock number setting
 
-	superblock.s_inodes_count = 128;
-	superblock.s_blocks_count = 1024;
+	superblock.s_inodes_count = NUM_INODES;
+	superblock.s_blocks_count = NUM_BLOCKS;
 	superblock.s_r_blocks_count = 0;
-	superblock.s_free_blocks_count = 1000;
-	superblock.s_free_inodes_count = 115;
+	superblock.s_free_blocks_count = NUM_FREE_BLOCKS;
+	superblock.s_free_inodes_count = NUM_FREE_INODES;
 	superblock.s_first_data_block = 1; /* First Data Block */
-	superblock.s_log_block_size = 1024;					/* 1024 */
-	superblock.s_log_frag_size = 1024;						/* 1024 */
+	superblock.s_log_block_size = 0;					/* 1024 */
+	superblock.s_log_frag_size = 0;						/* 1024 */
 	superblock.s_blocks_per_group = 8192;
 	superblock.s_frags_per_group = 8192;
-	superblock.s_inodes_per_group = 128;
+	superblock.s_inodes_per_group = NUM_INODES;
 	superblock.s_mtime = 0;				/* Mount time */
 	superblock.s_wtime = current_time;	/* Write time */
 	superblock.s_mnt_count         = 0; /* Number of times mounted so far */
 
 	superblock.s_max_mnt_count     = -1; /* Make this unlimited */
-
-	superblock.s_magic = 61267; /* ext2 Signature */
-	superblock.s_state             = 0; /* File system is clean */
-	superblock.s_errors            = 0; /* Ignore the error (continue on) */
+	superblock.s_magic = EXT2_SUPER_MAGIC; /* ext2 Signature */
+	superblock.s_state             = 1; /* File system is clean */
+	superblock.s_errors            = 1; /* Ignore the error (continue on) */
 	superblock.s_minor_rev_level   = 0; /* Leave this as 0 */
 	superblock.s_lastcheck = current_time; /* Last check time */
 	superblock.s_checkinterval     = 1; /* Force checks by making them every 1 second */
 	superblock.s_creator_os        = 0; /* Linux */
 	superblock.s_rev_level         = 0; /* Leave this as 0 */
-	superblock.s_def_resuid        = 0; /* root */
-	superblock.s_def_resgid        = 0; /* root */
+	superblock.s_def_resuid        = EXT2_ROOT_INO; /* root */
+	superblock.s_def_resgid        = EXT2_ROOT_INO; /* root */
 
 	/* You can leave everything below this line the same, delete this
 	   comment when you're done the lab */
@@ -264,12 +263,12 @@ void write_block_group_descriptor_table(int fd) {
 
 	// TODO It's all yours
 	// TODO finish the block group descriptor number setting
-	block_group_descriptor.bg_block_bitmap = -1;
-	block_group_descriptor.bg_inode_bitmap = -1;
-	block_group_descriptor.bg_inode_table = -1;
-	block_group_descriptor.bg_free_blocks_count = -1;
-	block_group_descriptor.bg_free_inodes_count = -1;
-	block_group_descriptor.bg_used_dirs_count = -1;
+	block_group_descriptor.bg_block_bitmap = BLOCK_BITMAP_BLOCKNO;
+	block_group_descriptor.bg_inode_bitmap = INODE_BITMAP_BLOCKNO;
+	block_group_descriptor.bg_inode_table = INODE_TABLE_BLOCKNO;
+	block_group_descriptor.bg_free_blocks_count = NUM_FREE_BLOCKS;
+	block_group_descriptor.bg_free_inodes_count = NUM_FREE_INODES;
+	block_group_descriptor.bg_used_dirs_count = 2;
 
 	ssize_t size = sizeof(block_group_descriptor);
 	if (write(fd, &block_group_descriptor, size) != size) {
@@ -286,30 +285,75 @@ void write_block_bitmap(int fd)
 	}
 
 	// TODO It's all yours
-	u8 map_value[BLOCK_SIZE];
+	//make sure to initialize everything to 0 or 1.... otherwise it will be random.
+	// 24- 1023 ===== 1-23
 
-	if (write(fd, map_value, BLOCK_SIZE) != BLOCK_SIZE)
-	{
-		errno_exit("write");
+	/*
+	blocks 1-23 are taken
+	blocks 24-1023 are free
+	blocks 1024 -> 1024 * 8 are also taken
+
+
+	Assume the array is set to 11111...111
+	block_bitmap[0] = 1-8
+
+	b[2], bit 7 is bit 24
+	rest are in same row...
+	b[2] = 254 //this makes it 01111111 for row 2 , so that 24th bit is 0
+
+	rows 3 - 1024/8 are 0s (free)
+	block_bitmap[3] = 0			//25-32
+	block_bitmap[4] = 0			//33-40
+	...
+	block_bitmap[1024/8 -1]  = 1024  		//1017 - 1024  (1017-1023 = 0, 1024 = 1)
+	beyond that is 1s again
+	*/	
+
+    u8 block_bitmap[BLOCK_SIZE] = {0};
+
+
+	// Blocks 1-23 are taken
+	for (int i = 0; i < 3; ++i) {
+		block_bitmap[i] = 0xFF;
+	}
+	block_bitmap[2] &= 0x7F; // Ensures block 24 is marked free
+
+
+	block_bitmap[127] = 0b10000000;
+    // The rest of blocks (24-1023) are already free (0)
+    // Blocks 1024 and above are taken
+    for (int i = 128; i < BLOCK_SIZE; ++i) {
+        block_bitmap[i] = 0xFF;
+    }
+
+    // Write the bitmap to the file
+    if (write(fd, block_bitmap, BLOCK_SIZE) != BLOCK_SIZE) {
+        errno_exit("write");
 	}
 }
 
-void write_inode_bitmap(int fd)
-{
-	off_t off = lseek(fd, BLOCK_OFFSET(INODE_BITMAP_BLOCKNO), SEEK_SET);
-	if (off == -1)
-	{
-		errno_exit("lseek");
-	}
+void write_inode_bitmap(int fd) {
+    off_t off = lseek(fd, BLOCK_OFFSET(INODE_BITMAP_BLOCKNO), SEEK_SET);
+    if (off == -1) {
+        errno_exit("lseek");
+    }
 
-	// TODO It's all yours
-	u8 map_value[BLOCK_SIZE];
+    u8 inode_bitmap[BLOCK_SIZE];
+    memset(inode_bitmap, 0xFF, BLOCK_SIZE); // Initially set all to 1
 
-	if (write(fd, map_value, BLOCK_SIZE) != BLOCK_SIZE)
-	{
-		errno_exit("write");
-	}
+    // Mark actual inodes (1-128) as free or used based on actual usage
+    // For example, to mark inodes 1-14 as used and the rest as free:
+    inode_bitmap[0] = 0xFF; // Inodes 1-8 are used
+    inode_bitmap[1] = 0b00011111; // Inodes 9-14 are used, inode 15 is free
+    for (int i = 2; i < 16; i++) { // Inodes 16-128 are free
+        inode_bitmap[i] = 0x00;
+    }
+
+    if (write(fd, inode_bitmap, BLOCK_SIZE) != BLOCK_SIZE) {
+        errno_exit("write");
+    }
 }
+
 
 void write_inode(int fd, u32 index, struct ext2_inode *inode) {
 	off_t off = BLOCK_OFFSET(INODE_TABLE_BLOCKNO)
@@ -349,14 +393,107 @@ void write_inode_table(int fd) {
 	lost_and_found_inode.i_block[0] = LOST_AND_FOUND_DIR_BLOCKNO;
 	write_inode(fd, LOST_AND_FOUND_INO, &lost_and_found_inode);
 
-	// TODO It's all yours
 	// TODO finish the inode entries for the other files
+
+	struct ext2_inode root_inode = {0};
+	// IFDIR = directory
+	// IRUSR, IWUSR, IXUSR = user permissions
+	// group and other listed too.
+	root_inode.i_mode = EXT2_S_IFDIR 
+						| EXT2_S_IRUSR | EXT2_S_IWUSR | EXT2_S_IXUSR
+						| EXT2_S_IRGRP | EXT2_S_IXGRP
+						| EXT2_S_IROTH | EXT2_S_IXOTH;
+	root_inode.i_uid = 0;
+	root_inode.i_gid = 0;
+	root_inode.i_size = 1024;  // Directory size (usually one block)
+	root_inode.i_atime = current_time;
+	root_inode.i_ctime = current_time;
+	root_inode.i_mtime = current_time;
+	root_inode.i_links_count = 3; // "." ".." lost+found 
+	root_inode.i_blocks = 2; // Number of 512-byte blocks allocated
+	// Set the block number for the directory data
+	root_inode.i_block[0] = ROOT_DIR_BLOCKNO;
+	write_inode(fd, EXT2_ROOT_INO, &root_inode);
+
+
+	struct ext2_inode hello_world_inode = {0};
+	//perms
+	hello_world_inode.i_mode = EXT2_S_IFREG 
+							| EXT2_S_IRUSR | EXT2_S_IWUSR
+							| EXT2_S_IRGRP
+							| EXT2_S_IROTH;
+	hello_world_inode.i_uid = 1000;
+	hello_world_inode.i_gid = 1000;
+	hello_world_inode.i_size = 12; // Length of "hello world\n"
+	hello_world_inode.i_atime = current_time;
+	hello_world_inode.i_ctime = current_time;
+	hello_world_inode.i_mtime = current_time;
+	hello_world_inode.i_links_count = 1;
+	hello_world_inode.i_blocks = 2; // Number of 512-byte blocks allocated
+	// Set the block number for the file data
+	hello_world_inode.i_block[0] = HELLO_WORLD_FILE_BLOCKNO;
+	write_inode(fd, HELLO_WORLD_INO, &hello_world_inode);
+
+
+	struct ext2_inode hello_symlink_inode = {0};
+	//permissions set are limited
+	hello_symlink_inode.i_mode = EXT2_S_IFLNK ;
+	hello_symlink_inode.i_uid = 1000;
+	hello_symlink_inode.i_gid = 1000;
+	hello_symlink_inode.i_size = 11;
+	hello_symlink_inode.i_atime = current_time;
+	hello_symlink_inode.i_ctime = current_time;
+	hello_symlink_inode.i_mtime = current_time;
+	hello_symlink_inode.i_links_count = 1;
+	// For short symlinks (under 60), the path can be stored in the i_block array directly
+	strncpy((char*)&hello_symlink_inode.i_block, "hello-world", sizeof(hello_symlink_inode.i_block));
+
+	write_inode(fd, HELLO_INO, &hello_symlink_inode);
+
+	//done!
 }
 
-void write_root_dir_block(int fd)
-{
-	// TODO It's all yours
+void write_root_dir_block(int fd) {
+	off_t off = BLOCK_OFFSET(ROOT_DIR_BLOCKNO);
+	off = lseek(fd, off, SEEK_SET);
+	if (off == -1) {
+		errno_exit("lseek");
+	}
+
+	ssize_t bytes_remaining = BLOCK_SIZE;
+
+	struct ext2_dir_entry current_entry = {0};
+	dir_entry_set(current_entry, EXT2_ROOT_INO, ".");
+	dir_entry_write(current_entry, fd);
+	bytes_remaining -= current_entry.rec_len;
+
+	struct ext2_dir_entry parent_entry = {0};
+	dir_entry_set(parent_entry, EXT2_ROOT_INO, "..");
+	dir_entry_write(parent_entry, fd);
+	bytes_remaining -= parent_entry.rec_len;
+
+	struct ext2_dir_entry lost_found = {0};
+	dir_entry_set(lost_found, LOST_AND_FOUND_INO, "lost+found");
+	dir_entry_write(lost_found, fd);
+	bytes_remaining -= lost_found.rec_len;
+
+	// Entry for 'hello-world'
+    struct ext2_dir_entry hello_world_entry = {0};
+    dir_entry_set(hello_world_entry, HELLO_WORLD_INO, "hello-world");
+    dir_entry_write(hello_world_entry, fd);
+    bytes_remaining -= hello_world_entry.rec_len;
+
+    // Entry for 'hello' (symbolic link)
+    struct ext2_dir_entry hello_entry = {0};
+    dir_entry_set(hello_entry, HELLO_INO, "hello");
+    dir_entry_write(hello_entry, fd);
+    bytes_remaining -= hello_entry.rec_len;
+
+	struct ext2_dir_entry fill_entry = {0};
+	fill_entry.rec_len = bytes_remaining;
+	dir_entry_write(fill_entry, fd);
 }
+
 
 void write_lost_and_found_dir_block(int fd) {
 	off_t off = BLOCK_OFFSET(LOST_AND_FOUND_DIR_BLOCKNO);
@@ -384,10 +521,29 @@ void write_lost_and_found_dir_block(int fd) {
 	dir_entry_write(fill_entry, fd);
 }
 
-void write_hello_world_file_block(int fd)
-{
-	// TODO It's all yours
+void write_hello_world_file_block(int fd) {
+    // off_t off = BLOCK_OFFSET(HELLO_WORLD_FILE_BLOCKNO);
+    // off = lseek(fd, off, SEEK_SET);
+    // if (off == -1) {
+    //     errno_exit("lseek");
+    // }
+
+    // const char *data = "Hello world\n";  // Data to be written to the file
+    // ssize_t data_size = strlen(data);    // Size of the data
+
+    // if (write(fd, data, data_size) != data_size) {
+    //     errno_exit("write");
+    // }
+
+    // // Optionally, fill the rest of the block with zeros if the block size is larger than the data
+    // ssize_t bytes_remaining = BLOCK_SIZE - data_size;
+    // char buffer[bytes_remaining];
+    // memset(buffer, 0, bytes_remaining);
+    // if (write(fd, buffer, bytes_remaining) != bytes_remaining) {
+    //     errno_exit("write");
+    // }
 }
+
 
 int main(int argc, char *argv[]) {
 	int fd = open("cs111-base.img", O_CREAT | O_WRONLY, 0666);
@@ -404,8 +560,12 @@ int main(int argc, char *argv[]) {
 
 	write_superblock(fd);
 	write_block_group_descriptor_table(fd);
+	
 	write_block_bitmap(fd);
 	write_inode_bitmap(fd);
+	//can hardcode the bitmap to 10100011 etc.
+
+
 	write_inode_table(fd);
 	write_root_dir_block(fd);
 	write_lost_and_found_dir_block(fd);
