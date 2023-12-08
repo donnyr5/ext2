@@ -525,26 +525,26 @@ void write_lost_and_found_dir_block(int fd) {
 }
 
 void write_hello_world_file_block(int fd) {
-    // off_t off = BLOCK_OFFSET(HELLO_WORLD_FILE_BLOCKNO);
-    // off = lseek(fd, off, SEEK_SET);
-    // if (off == -1) {
-    //     errno_exit("lseek");
-    // }
+    off_t off = BLOCK_OFFSET(HELLO_WORLD_FILE_BLOCKNO);
+    off = lseek(fd, off, SEEK_SET);
+    if (off == -1) {
+        errno_exit("lseek");
+    }
 
-    // const char *data = "Hello world\n";  // Data to be written to the file
-    // ssize_t data_size = strlen(data);    // Size of the data
+    const char *data = "Hello world\n";  // Data to be written to the file
+    ssize_t data_size = strlen(data);    // Size of the data
 
-    // if (write(fd, data, data_size) != data_size) {
-    //     errno_exit("write");
-    // }
+    if (write(fd, data, data_size) != data_size) {
+        errno_exit("write");
+    }
 
-    // // Optionally, fill the rest of the block with zeros if the block size is larger than the data
-    // ssize_t bytes_remaining = BLOCK_SIZE - data_size;
-    // char buffer[bytes_remaining];
-    // memset(buffer, 0, bytes_remaining);
-    // if (write(fd, buffer, bytes_remaining) != bytes_remaining) {
-    //     errno_exit("write");
-    // }
+    // Optionally, fill the rest of the block with zeros if the block size is larger than the data
+    ssize_t bytes_remaining = BLOCK_SIZE - data_size;
+    char buffer[bytes_remaining];
+    memset(buffer, 0, bytes_remaining);
+    if (write(fd, buffer, bytes_remaining) != bytes_remaining) {
+        errno_exit("write");
+    }
 }
 
 
