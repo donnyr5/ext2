@@ -437,7 +437,10 @@ void write_inode_table(int fd) {
 
 	struct ext2_inode hello_symlink_inode = {0};
 	//permissions set are limited
-	hello_symlink_inode.i_mode = EXT2_S_IFLNK ;
+	hello_symlink_inode.i_mode = EXT2_S_IFLNK 
+							| EXT2_S_IRUSR | EXT2_S_IWUSR
+							| EXT2_S_IRGRP
+							| EXT2_S_IROTH;;
 	hello_symlink_inode.i_uid = 1000;
 	hello_symlink_inode.i_gid = 1000;
 	hello_symlink_inode.i_size = 11;
