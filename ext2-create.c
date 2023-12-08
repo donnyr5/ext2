@@ -409,7 +409,7 @@ void write_inode_table(int fd) {
 	root_inode.i_atime = current_time;
 	root_inode.i_ctime = current_time;
 	root_inode.i_mtime = current_time;
-	root_inode.i_links_count = 3; // "." ".." lost+found 
+	root_inode.i_links_count = 1; // "." ".." and lost+found 
 	root_inode.i_blocks = 2; // Number of 512-byte blocks allocated
 	// Set the block number for the directory data
 	root_inode.i_block[0] = ROOT_DIR_BLOCKNO;
