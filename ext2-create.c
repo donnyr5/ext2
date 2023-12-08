@@ -223,8 +223,8 @@ void write_superblock(int fd) {
 	superblock.s_checkinterval     = 1; /* Force checks by making them every 1 second */
 	superblock.s_creator_os        = 0; /* Linux */
 	superblock.s_rev_level         = 0; /* Leave this as 0 */
-	superblock.s_def_resuid        = EXT2_ROOT_INO; /* root */
-	superblock.s_def_resgid        = EXT2_ROOT_INO; /* root */
+	superblock.s_def_resuid        = 0; /* root */
+	superblock.s_def_resgid        = 0; /* root */
 
 	/* You can leave everything below this line the same, delete this
 	   comment when you're done the lab */
