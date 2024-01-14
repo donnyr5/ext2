@@ -37,7 +37,3 @@ Run the compiled program to generate the EXT2 filesystem image:
 The program will create a file named cs111-base.img containing the EXT2 filesystem structure.
 
 This implementation provides a basic structure of the EXT2 filesystem and generates a filesystem image. You can explore the generated filesystem image using tools like debugfs or by mounting it as a loop device in a Linux environment. Keep in mind that this implementation is simplified and does not include advanced filesystem features.
-
-## Disclaimer
-
-This implementation is intended for educational purposes and does not cover all aspects of a complete and functional EXT2 filesystem. Use it for learning and experimentation, but do not rely on it for production or real-world use cases.
