@@ -24,16 +24,3 @@ You can compile and run this implementation on a Linux system by following these
 
    ```shell
    gcc -o ext2fs ext2fs.c
-
-
-## Usage
-
-Run the compiled program to generate the EXT2 filesystem image:
-
-```shell
-./ext2fs
-
-
-The program will create a file named cs111-base.img containing the EXT2 filesystem structure.
-
-This implementation provides a basic structure of the EXT2 filesystem and generates a filesystem image. You can explore the generated filesystem image using tools like debugfs or by mounting it as a loop device in a Linux environment. Keep in mind that this implementation is simplified and does not include advanced filesystem features.
